@@ -53,10 +53,12 @@ async def new_subscription_url(message: Message, state: FSMContext):
     print(message)
     try:
         parsed_url = urlparse(message.text.strip().lower())
+        print(parsed_url)
         query_params = parse_qs(parsed_url.query)
         normalized_params = {key: value[0] if len(value) == 1 else value for key, value in query_params.items()}
 
         data = await state.get_data()
+        data['url'] = f'{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}{parsed_url.params}'
         data['user'] = message.from_user.id
         data['params'] = normalized_params
         print(data)

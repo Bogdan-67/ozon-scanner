@@ -12,22 +12,20 @@ import time
 import re
 
 from config.models.Subscription import Subscription
+from helpers.seleniumHelper import get_uc_driver
+from helpers.urlHelper import add_params_url
+from markups.offer_markup import offer_markup
 
 load_dotenv()
 
 
 def search_ozon(query, max_price):
-    options = Options()
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument(f"user-agent={os.getenv('USER_AGENT')}")
-    options.add_argument("--headless")  # не открывать окно браузера
+    driver = get_uc_driver()
 
-    # Инициализация драйвера с использованием webdriver-manager
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    # driver = webdriver.Chrome()
-    driver.get('https://www.ozon.ru/')
+    try:
+        driver.get('https://www.ozon.ru/')
+    except Exception as e:
+        print(f'Error open ozon page: {e}')
     time.sleep(3)
 
     # Поиск по запросу
@@ -41,14 +39,16 @@ def search_ozon(query, max_price):
 
     @retry(stop_max_attempt_number=5, wait_fixed=1000)
     def enter_min_price():
-        min_price_input = driver.find_element(By.XPATH, '//div[@filter-key="currency_price"]//p[contains(text(), "от")]/preceding-sibling::input')
+        min_price_input = driver.find_elements(By.CSS_SELECTOR, 'input[class="d015-a d015-a0 e0115-a8"]')[0]
+        print(min_price_input)
         min_price_input.clear()
+        time.sleep(20)
         min_price_input.send_keys('30000')
         print("Минимальная цена введена успешно")
 
     @retry(stop_max_attempt_number=5, wait_fixed=1000)
     def enter_max_price():
-        max_price_input = driver.find_element(By.XPATH, '//div[@filter-key="currency_price"]//p[contains(text(), "до")]/preceding-sibling::input')
+        max_price_input = driver.find_elements(By.CSS_SELECTOR, 'input[class="d015-a d015-a0 e0115-a8"]')[1]
         max_price_input.clear()
         max_price_input.send_keys(str(max_price))
         max_price_input.send_keys(Keys.RETURN)
@@ -64,10 +64,11 @@ def search_ozon(query, max_price):
     except Exception as e:
         print("Ошибка при вводе максимальной цены после 5 попыток:", e)
 
-    time.sleep(3)  # Ждем обновления результатов
+    time.sleep(3000)  # Ждем обновления результатов
 
     # Сбор информации о товарах
-    products = driver.find_elements(By.CLASS_NAME, 'q1j_23')  # Найдите правильный селектор для товаров
+    products = driver.find_elements(By.CLASS_NAME, 'rj_23')  # Найдите правильный селектор для товаров
+    print(products)
     result = []
     search_words = query.lower().split()
 
@@ -90,8 +91,43 @@ def search_ozon(query, max_price):
     return result
 
 
+def search_ozon_url(url: str, params: dict):
+    driver = get_uc_driver()
+
+    url = add_params_url(url, params)
+
+    try:
+        driver.get(url)
+    except Exception as e:
+        print(f'Error open ozon page: {e}')
+    time.sleep(3)
+
+    # Сбор информации о товарах
+    products = driver.find_elements(By.XPATH, '//div[contains(@class,"tile-root")]/div/div')  # Найдите правильный селектор для товаров
+    print(products)
+    result = []
+
+    for product in products:
+        try:
+            title = product.find_element(By.CLASS_NAME, 'tile-hover-target').text
+            price = product.find_element(By.XPATH, './/span[contains(text(),"₽")]').text
+            link = product.find_element(By.TAG_NAME, 'a').get_attribute('href')
+
+            result.append({
+                'title': title,
+                'price': price,
+                'link': link
+            })
+        except Exception as e:
+            print(f"Error: {e}")
+
+    driver.quit()
+    return result
+
+
 async def check_sub_ozon(sub: Subscription):
-    products = search_ozon(sub.search, sub.max_price)
+    products = search_ozon_url(url=sub.url, params=sub.params) if sub.url else search_ozon(sub.search, sub.max_price)
+    print(products)
 
     if products:
         try:
@@ -101,8 +137,8 @@ async def check_sub_ozon(sub: Subscription):
 
             for product in products:
                 try:
-                    message_text = f'{product["title"]} - {product["price"]}\n{product["link"]}'
-                    await bot.send_message(chat_id=sub.user, text=message_text)
+                    message_text = f'{product["title"]} - {product["price"]}'
+                    await bot.send_message(chat_id=sub.user, text=message_text, reply_markup=offer_markup(product["link"]))
                 except Exception as e:
                     print(e)
         except Exception as e:

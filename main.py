@@ -56,8 +56,8 @@ async def response(callback: types.CallbackQuery, state: FSMContext):
             await state.update_data(site=callback.data)
             match callback.data:
                 case 'ozon':
-                    mess = 'Поисковый запрос:'
-                    await state.set_state(NewSubscription.search)
+                    mess = 'Ссылка на страницу с выставленными фильтрами'
+                    await state.set_state(NewSubscription.url)
                     await callback.message.answer(mess)
                 case 'cian':
                     mess = 'Ссылка на страницу с выставленными фильтрами'
@@ -95,11 +95,10 @@ async def job():
         match sub.site:
             case 'ozon':
                 await check_sub_ozon(sub)
+                continue
             case 'cian':
                 await check_sub_cian(sub)
-
-    else:
-        print("Товары не найдены")
+                continue
 
 
 async def main():

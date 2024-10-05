@@ -16,8 +16,8 @@ def get_options():
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument(f"user-agent={os.getenv('USER_AGENT')}")
     options.add_argument("--disable-webrtc")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
+    # options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    # options.add_experimental_option('useAutomationExtension', False)
     # options.add_argument("--headless")  # не открывать окно браузера
 
     return options
@@ -40,6 +40,7 @@ def get_uc_driver():
     options.add_argument("--start-maximized")
     options.add_argument("--disable-webrtc")
     options.add_argument('--window-size=1920,1080')
+    # options.add_argument("--headless")  # не открывать окно браузера
     # options.add_experimental_option("excludeSwitches", ["enable-automation"])
     # options.add_experimental_option('useAutomationExtension', False)
     return uc.Chrome(use_subprocess=False, options=options)

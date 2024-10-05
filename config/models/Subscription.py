@@ -10,6 +10,7 @@ class Subscription(Model):
     max_price: float | DecimalField = DecimalField(null=True)
     user: str | CharField = CharField()
     site: str | CharField = CharField(null=True)
+    url: str | CharField = CharField(null=True)
     params: dict | JSONField = JSONField(null=True)
     last_updated = DateTimeField(default=datetime.datetime.now)
 
