@@ -1,13 +1,14 @@
 from config.database.db import objects
 from config.models.Subscription import Subscription
 import asyncpg
+import json
 
 
 async def get_subscriptions():
     try:
         subscriptions = await objects.execute(Subscription.select())
-        print('response:', list(subscriptions))
-        return list(subscriptions)
+        print(list(subscriptions))
+        return subscriptions
     except Exception as e:
         print('error', e)
         raise
@@ -32,9 +33,12 @@ async def delete_user_subscription(subscription):
         raise
 
 
-async def save_subscription(search: str, max_price: str, user: int):
+async def save_subscription(data_dict: dict):
     try:
-        await objects.create(Subscription, search=search, max_price=max_price, user=user)
+        if 'params' in data_dict:
+            data_dict['params'] = json.dumps(data_dict['params'])
+
+        Subscription.create(**data_dict)
         return
     except Exception as e:
         print(e)

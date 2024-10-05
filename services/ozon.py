@@ -7,8 +7,11 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from retrying import retry
+from bot import start_bot, bot
 import time
 import re
+
+from config.models.Subscription import Subscription
 
 load_dotenv()
 
@@ -85,3 +88,22 @@ def search_ozon(query, max_price):
 
     driver.quit()
     return result
+
+
+async def check_sub_ozon(sub: Subscription):
+    products = search_ozon(sub.search, sub.max_price)
+
+    if products:
+        try:
+            await bot.send_message(chat_id=sub.user, text="Найдены товары по вашей цене")
+            # body = "\n\n".join([f'{product["title"]} - {product["price"]}\n{product["link"]}' for product in products])
+            # send_email("Найдены товары по вашей цене", body)
+
+            for product in products:
+                try:
+                    message_text = f'{product["title"]} - {product["price"]}\n{product["link"]}'
+                    await bot.send_message(chat_id=sub.user, text=message_text)
+                except Exception as e:
+                    print(e)
+        except Exception as e:
+            print(e)

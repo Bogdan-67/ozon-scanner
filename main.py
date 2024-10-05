@@ -6,13 +6,16 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bot import start_bot, bot
 from config.database.subscription_queries import get_user_subscriptions, delete_user_subscription, get_subscriptions
 from config.routers.user_router import user_router
-from services.search_ozon import search_ozon
+from services.ozon import check_sub_ozon
+from services.cian import check_sub_cian
 from aiogram.filters import Command
 from handlers.main_menu import main_menu
 from aiogram import Bot, Dispatcher, types, html
 from markups.menu_markup import back_to_menu_markup
+from markups.sites_markup import sites_markup
 from states.NewSubscription import NewSubscription
 import sys
+from const.sites import SITES
 
 import handlers.new_subscription_handler
 import handlers.main_menu
@@ -44,10 +47,22 @@ async def response(callback: types.CallbackQuery, state: FSMContext):
             await main_menu(callback.message, callback.from_user)
 
         elif callback.data == "add_subscription":
-            mess = 'Поисковый запрос:'
-            await state.set_state(NewSubscription.search)
-            await callback.message.answer(mess, parse_mode='html')
+            mess = 'Выбери сервис для отслеживания'
+            await callback.message.answer(mess, reply_markup=sites_markup())
             print('message send')
+
+        elif callback.data in [site['code'] for site in SITES]:
+            await state.set_state(NewSubscription.site)
+            await state.update_data(site=callback.data)
+            match callback.data:
+                case 'ozon':
+                    mess = 'Поисковый запрос:'
+                    await state.set_state(NewSubscription.search)
+                    await callback.message.answer(mess)
+                case 'cian':
+                    mess = 'Ссылка на страницу с выставленными фильтрами'
+                    await state.set_state(NewSubscription.url)
+                    await callback.message.answer(mess)
 
         elif callback.data == "subscriptions":
             subscriptions = await get_user_subscriptions(callback.from_user.id)
@@ -77,22 +92,12 @@ async def response(callback: types.CallbackQuery, state: FSMContext):
 async def job():
     subs = await get_subscriptions()
     for sub in subs:
-        products = search_ozon(sub.search, sub.max_price)
+        match sub.site:
+            case 'ozon':
+                await check_sub_ozon(sub)
+            case 'cian':
+                await check_sub_cian(sub)
 
-        if products:
-            try:
-                await bot.send_message(chat_id=sub.user, text="Найдены товары по вашей цене")
-                # body = "\n\n".join([f'{product["title"]} - {product["price"]}\n{product["link"]}' for product in products])
-                # send_email("Найдены товары по вашей цене", body)
-
-                for product in products:
-                    try:
-                        message_text = f'{product["title"]} - {product["price"]}\n{product["link"]}'
-                        await bot.send_message(chat_id=sub.user, text=message_text)
-                    except Exception as e:
-                        print(e)
-            except Exception as e:
-                print(e)
     else:
         print("Товары не найдены")
 

@@ -12,7 +12,7 @@ sv_host = os.getenv('SV_HOST')
 pg_port = os.getenv('PG_PORT')
 
 db = peewee_async.PostgresqlDatabase(
-    'postgres',
+    database=pg_db,
     user=pg_user,
     password=pg_pw,
     host=sv_host,
