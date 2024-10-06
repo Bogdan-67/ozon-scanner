@@ -14,6 +14,7 @@ from bot import start_bot, bot
 import time
 import re
 
+from config.database.notification_queries import find_notification, save_notification
 from config.models.Subscription import Subscription
 from helpers.seleniumHelper import get_uc_driver
 from helpers.urlHelper import add_params_url
@@ -138,22 +139,24 @@ def search_ozon_url(url: str, params: dict):
 async def check_sub_ozon(sub: Subscription):
     products = search_ozon_url(url=sub.url, params=sub.params) if sub.url else search_ozon(sub.search, sub.max_price)
     print(products)
+    notys = []
 
     if products:
         try:
-            await bot.send_message(chat_id=sub.user, text="Найдены товары по вашей цене")
-
             for product in products:
                 try:
-                    message_text = f'{product["title"]} - {product["price"]}'
-
-                    # Скачиваем изображение с использованием requests и сохраняем его в памяти
-                    image_data = requests.get(product["image_url"]).content
-                    image = BufferedInputFile(file=image_data, filename='image.png')
-
-                    await bot.send_photo(chat_id=sub.user, photo=image, caption=message_text,
-                                         reply_markup=offer_markup(product["link"]), parse_mode='html')
+                    if not await find_notification(title=product["title"], site='ozon'):
+                        await save_notification(title=product["title"], user=sub.user, site='ozon')
+                        message_text = f'{product["title"]} - {product["price"]}'
+                        notys.append({
+                            "image_url": product["image_url"],
+                            "link": product["link"],
+                            "message_text": message_text
+                        })
                 except Exception as e:
                     print(e)
+
         except Exception as e:
             print(e)
+
+    return notys

@@ -1,11 +1,15 @@
 import asyncio
 import os
+
+import requests
 from aiogram.fsm.context import FSMContext
+from aiogram.types import BufferedInputFile
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bot import start_bot, bot
 from config.database.subscription_queries import get_user_subscriptions, delete_user_subscription, get_subscriptions
 from config.routers.user_router import user_router
+from markups.offer_markup import offer_markup
 from services.ozon import check_sub_ozon
 from services.cian import check_sub_cian
 from aiogram.filters import Command
@@ -92,13 +96,19 @@ async def response(callback: types.CallbackQuery, state: FSMContext):
 async def job():
     subs = await get_subscriptions()
     for sub in subs:
+        notifications = []
         match sub.site:
             case 'ozon':
-                await check_sub_ozon(sub)
-                continue
+                notifications = await check_sub_ozon(sub)
             case 'cian':
-                await check_sub_cian(sub)
-                continue
+                notifications = await check_sub_cian(sub)
+        for noty in notifications:
+            # Скачиваем изображение с использованием requests и сохраняем его в памяти
+            image_data = requests.get(noty["image_url"]).content
+            image = BufferedInputFile(file=image_data, filename='image.png')
+
+            await bot.send_photo(chat_id=sub.user, photo=image, caption=noty["message_text"],
+                                 reply_markup=offer_markup(noty["link"]), parse_mode='html')
 
 
 async def main():
@@ -106,7 +116,7 @@ async def main():
     bot_task = asyncio.create_task(start_bot())
     await job()
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(job, 'interval', hours=2)
+    scheduler.add_job(job, 'interval', hours=1)
     scheduler.start()
 
     await bot_task

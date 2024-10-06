@@ -5,6 +5,7 @@ from aiogram import Dispatcher, Bot
 
 from config import middleware
 from config.database.db import create_pool
+from config.models.Notification import Notification
 from config.models.Subscription import Subscription
 from config.models.User import User
 from config.routers.user_router import user_router
@@ -14,6 +15,7 @@ load_dotenv()
 bot = Bot(token=os.getenv('BOT_TOKEN'))
 
 
+
 async def start_bot():
     dp = Dispatcher()
 
@@ -21,7 +23,7 @@ async def start_bot():
     database, objects = await create_pool()
 
     with database:
-        database.create_tables([User, Subscription])
+        database.create_tables([User, Subscription, Notification])
 
     user_router.message.middleware(middleware.DbMiddleware(db=database, objects=objects))
     user_router.callback_query.middleware(middleware.DbMiddleware(db=database, objects=objects))

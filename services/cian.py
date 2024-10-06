@@ -11,6 +11,8 @@ from aiogram.types import InputFile, BufferedInputFile
 from bot import start_bot, bot
 import time
 import re
+
+from config.database.notification_queries import find_notification, save_notification
 from helpers.seleniumHelper import get_uc_driver
 from urllib.parse import urlencode, urlparse, urlunparse, parse_qs
 
@@ -93,25 +95,28 @@ async def search_cian(params):
 async def check_sub_cian(sub):
     try:
         offers = await search_cian(sub.params)
-        print('offers:', offers)
+        notys = []
 
         if offers:
             try:
-                await bot.send_message(chat_id=sub.user, text="Найдены объявления по вашему запросу")
-
                 for offer in offers:
                     try:
-                        message_text = f'{offer["title"]} - {offer["price"]}\n{offer["price_info"]}\n{offer["location"]}\nАвтор: {offer["author"]}\n\n<i>{offer["description"]}</i>'
+                        if not await find_notification(title=offer["title"], site='cian'):
+                            await save_notification(title=offer["title"], user=sub.user, site='cian')
+                            message_text = f'{offer["title"]} - {offer["price"]}\n{offer["price_info"]}\n{offer["location"]}\nАвтор: {offer["author"]}\n\n<i>{offer["description"]}</i>'
 
-                        # Скачиваем изображение с использованием requests и сохраняем его в памяти
-                        image_data = requests.get(offer["image_url"]).content
-                        image = BufferedInputFile(file=image_data, filename='image.png')
+                            notys.append({
+                                "image_url": offer["image_url"],
+                                "link": offer["link"],
+                                "message_text": message_text
+                            })
 
-                        await bot.send_photo(chat_id=sub.user, photo=image, caption=message_text, reply_markup=offer_markup(offer["link"]), parse_mode='html')
                     except Exception as e:
                         print(e)
+
             except Exception as e:
                 print(e)
 
+        return notys
     except Exception as e:
         print(f'Error in {sub.id}: {e}')
