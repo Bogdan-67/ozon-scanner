@@ -1,4 +1,7 @@
 import os
+
+import requests
+from aiogram.types import BufferedInputFile
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -67,7 +70,7 @@ def search_ozon(query, max_price):
     time.sleep(3000)  # Ждем обновления результатов
 
     # Сбор информации о товарах
-    products = driver.find_elements(By.CLASS_NAME, 'rj_23')  # Найдите правильный селектор для товаров
+    products = driver.find_elements(By.CLASS_NAME, 'tile-root')  # Найдите правильный селектор для товаров
     print(products)
     result = []
     search_words = query.lower().split()
@@ -103,20 +106,27 @@ def search_ozon_url(url: str, params: dict):
     time.sleep(3)
 
     # Сбор информации о товарах
-    products = driver.find_elements(By.XPATH, '//div[contains(@class,"tile-root")]/div/div')  # Найдите правильный селектор для товаров
+    products = driver.find_elements(By.XPATH, '//div[contains(@class,"tile-root")]/div')  # Найдите правильный селектор для товаров
     print(products)
     result = []
 
     for product in products:
         try:
-            title = product.find_element(By.CLASS_NAME, 'tile-hover-target').text
-            price = product.find_element(By.XPATH, './/span[contains(text(),"₽")]').text
-            link = product.find_element(By.TAG_NAME, 'a').get_attribute('href')
+            info = product.find_element(By.CLASS_NAME, 'jr1_23')
+            title = info.find_element(By.CLASS_NAME, 'tile-hover-target').text
+            price = info.find_element(By.XPATH, './/span[contains(text(),"₽")]').text
+            link = info.find_element(By.TAG_NAME, 'a').get_attribute('href')
+
+            image_element = product.find_element(By.TAG_NAME, 'img')
+
+            # Получаем атрибут src (URL изображения)
+            image_url = image_element.get_attribute('src')
 
             result.append({
                 'title': title,
                 'price': price,
-                'link': link
+                'link': link,
+                'image_url': image_url
             })
         except Exception as e:
             print(f"Error: {e}")
@@ -132,13 +142,17 @@ async def check_sub_ozon(sub: Subscription):
     if products:
         try:
             await bot.send_message(chat_id=sub.user, text="Найдены товары по вашей цене")
-            # body = "\n\n".join([f'{product["title"]} - {product["price"]}\n{product["link"]}' for product in products])
-            # send_email("Найдены товары по вашей цене", body)
 
             for product in products:
                 try:
                     message_text = f'{product["title"]} - {product["price"]}'
-                    await bot.send_message(chat_id=sub.user, text=message_text, reply_markup=offer_markup(product["link"]))
+
+                    # Скачиваем изображение с использованием requests и сохраняем его в памяти
+                    image_data = requests.get(product["image_url"]).content
+                    image = BufferedInputFile(file=image_data, filename='image.png')
+
+                    await bot.send_photo(chat_id=sub.user, photo=image, caption=message_text,
+                                         reply_markup=offer_markup(product["link"]), parse_mode='html')
                 except Exception as e:
                     print(e)
         except Exception as e:
