@@ -19,3 +19,12 @@ async def save_notification(title, user, site):
     except Exception as e:
         print('Database error:', e)
         raise
+
+
+async def delete_notification(date):
+    try:
+        await objects.execute(Notification.delete().where(Notification.last_updated < date))
+        return
+    except Exception as e:
+        print('Database error:', e)
+        raise

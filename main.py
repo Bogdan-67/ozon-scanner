@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import os
 
 import requests
@@ -7,6 +8,7 @@ from aiogram.types import BufferedInputFile
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bot import start_bot, bot
+from config.database.notification_queries import delete_notification
 from config.database.subscription_queries import get_user_subscriptions, delete_user_subscription, get_subscriptions
 from config.routers.user_router import user_router
 from markups.offer_markup import offer_markup
@@ -20,6 +22,7 @@ from markups.sites_markup import sites_markup
 from states.NewSubscription import NewSubscription
 import sys
 from const.sites import SITES
+from dateutil.relativedelta import relativedelta
 
 import handlers.new_subscription_handler
 import handlers.main_menu
@@ -97,26 +100,41 @@ async def job():
     subs = await get_subscriptions()
     for sub in subs:
         notifications = []
-        match sub.site:
-            case 'ozon':
-                notifications = await check_sub_ozon(sub)
-            case 'cian':
-                notifications = await check_sub_cian(sub)
-        for noty in notifications:
-            # Скачиваем изображение с использованием requests и сохраняем его в памяти
-            image_data = requests.get(noty["image_url"]).content
-            image = BufferedInputFile(file=image_data, filename='image.png')
+        try:
+            match sub.site:
+                case 'ozon':
+                    notifications = await check_sub_ozon(sub)
+                case 'cian':
+                    notifications = await check_sub_cian(sub)
+            for noty in notifications:
+                try:
+                    # Скачиваем изображение с использованием requests и сохраняем его в памяти
+                    image_data = requests.get(noty["image_url"]).content
+                    image = BufferedInputFile(file=image_data, filename='image.png')
 
-            await bot.send_photo(chat_id=sub.user, photo=image, caption=noty["message_text"],
-                                 reply_markup=offer_markup(noty["link"]), parse_mode='html')
+                    await bot.send_photo(chat_id=sub.user, photo=image, caption=noty["message_text"],
+                                         reply_markup=offer_markup(noty["link"]), parse_mode='html')
+                except Exception as e:
+                    print('Error send notification:', e)
+        except Exception as e:
+            print(f'Error get notifications for sub {sub.id}:', e)
+
+
+async def clear_db():
+    now = datetime.datetime.now()
+    delete_date = now - relativedelta(months=2)
+    print(delete_date)
+    await delete_notification(delete_date)
 
 
 async def main():
     print("Скрипт запущен. Нажмите Ctrl+C для остановки.")
     bot_task = asyncio.create_task(start_bot())
+    await clear_db()
     await job()
     scheduler = AsyncIOScheduler()
     scheduler.add_job(job, 'interval', hours=1)
+    scheduler.add_job(clear_db, 'interval', hours=24)
     scheduler.start()
 
     await bot_task
