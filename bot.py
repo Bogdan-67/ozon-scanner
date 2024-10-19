@@ -9,11 +9,11 @@ from config.models.Notification import Notification
 from config.models.Subscription import Subscription
 from config.models.User import User
 from config.routers.user_router import user_router
+from loader import BOT_API_TOKEN
 
 load_dotenv()
 
-bot = Bot(token=os.getenv('BOT_TOKEN'))
-
+bot = Bot(token=BOT_API_TOKEN)
 
 
 async def start_bot():

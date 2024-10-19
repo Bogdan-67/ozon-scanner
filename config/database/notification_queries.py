@@ -2,9 +2,9 @@ from config.database.db import objects
 from config.models.Notification import Notification
 
 
-async def find_notification(title, site):
+async def find_notification(link, site):
     try:
-        return await objects.get(Notification, (Notification.title == title) & (Notification.site == site))
+        return await objects.get(Notification, (Notification.link == link) & (Notification.site == site))
     except Notification.DoesNotExist:
         return None
     except Exception as e:
@@ -12,9 +12,9 @@ async def find_notification(title, site):
         raise
 
 
-async def save_notification(title, user, site):
+async def save_notification(title, link, user, site):
     try:
-        Notification.create(title=title, user=user, site=site)
+        Notification.create(title=title, link=link, user=user, site=site)
         return
     except Exception as e:
         print('Database error:', e)

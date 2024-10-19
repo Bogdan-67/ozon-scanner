@@ -1,6 +1,8 @@
 import asyncio
 import datetime
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 
 import requests
 from aiogram.fsm.context import FSMContext
@@ -11,6 +13,7 @@ from bot import start_bot, bot
 from config.database.notification_queries import delete_notification
 from config.database.subscription_queries import get_user_subscriptions, delete_user_subscription, get_subscriptions
 from config.routers.user_router import user_router
+from loader import MODE, logger
 from markups.offer_markup import offer_markup
 from services.ozon import check_sub_ozon
 from services.cian import check_sub_cian
@@ -26,9 +29,6 @@ from dateutil.relativedelta import relativedelta
 
 import handlers.new_subscription_handler
 import handlers.main_menu
-
-if sys.version_info >= (3, 8) and sys.platform.lower().startswith("win"):
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 load_dotenv()
 
@@ -47,7 +47,6 @@ async def menu(message: types.Message):
 
 @user_router.callback_query()
 async def response(callback: types.CallbackQuery, state: FSMContext):
-    print(callback.data)
     if callback.message.chat.type == 'private':
 
         if callback.data == "menu":
@@ -56,7 +55,6 @@ async def response(callback: types.CallbackQuery, state: FSMContext):
         elif callback.data == "add_subscription":
             mess = 'Выбери сервис для отслеживания'
             await callback.message.answer(mess, reply_markup=sites_markup())
-            print('message send')
 
         elif callback.data in [site['code'] for site in SITES]:
             await state.set_state(NewSubscription.site)
@@ -73,7 +71,8 @@ async def response(callback: types.CallbackQuery, state: FSMContext):
 
         elif callback.data == "subscriptions":
             subscriptions = await get_user_subscriptions(callback.from_user.id)
-            mess = "Список активных подписок:" + "\n".join([f"{index + 1}. {sub['search']} - {sub['max_price']}" for sub, index in subscriptions])
+            mess = "Список активных подписок:" + "\n".join(
+                [f"{index + 1}. {sub['search']} - {sub['max_price']}" for sub, index in subscriptions])
             markup = types.InlineKeyboardMarkup(
                 inline_keyboard=[[types.InlineKeyboardButton(text='Удалить подписку', callback_data='delete_sub')]])
 
@@ -90,7 +89,7 @@ async def response(callback: types.CallbackQuery, state: FSMContext):
                     subs = await get_user_subscriptions(callback.from_user.id)
                     await delete_user_subscription(subs[num])
                 except Exception as e:
-                    print(e)
+                    logging.error(e)
                     await callback.message.answer(text='Что-то пошло не так 🙁\nПопробуйте еще раз позже')
             else:
                 await callback.message.answer(text="Неверный номер, попробуй снова", callback="selected_deletion")
@@ -106,29 +105,41 @@ async def job():
                     notifications = await check_sub_ozon(sub)
                 case 'cian':
                     notifications = await check_sub_cian(sub)
+            send_num = 0
             for noty in notifications:
                 try:
-                    # Скачиваем изображение с использованием requests и сохраняем его в памяти
-                    image_data = requests.get(noty["image_url"]).content
-                    image = BufferedInputFile(file=image_data, filename='image.png')
+                    image = None
+                    try:
+                        # Скачиваем изображение с использованием requests и сохраняем его в памяти
+                        image_data = requests.get(noty["image_url"]).content
+                        image = BufferedInputFile(file=image_data, filename='image.png')
+                    except requests.exceptions.InvalidSchema as e:
+                        # Логируем исключение правильно
+                        logger.error("Error get image: %s", str(e))
 
-                    await bot.send_photo(chat_id=sub.user, photo=image, caption=noty["message_text"],
-                                         reply_markup=offer_markup(noty["link"]), parse_mode='html')
+                    if image:
+                        await bot.send_photo(chat_id=sub.user, photo=image, caption=noty["message_text"],
+                                             reply_markup=offer_markup(noty["link"]), parse_mode='html')
+                    else:
+                        await bot.send_message(chat_id=sub.user, text=noty["message_text"],
+                                               reply_markup=offer_markup(noty["link"]), parse_mode='html')
+                    send_num += 1
                 except Exception as e:
-                    print('Error send notification:', e)
+                    logger.error('Error send notification: %s', str(e))
+            logger.debug(f"Sended {send_num} of {len(notifications)} notifications")
         except Exception as e:
-            print(f'Error get notifications for sub {sub.id}:', e)
+            logger.error('Error get notifications for sub %s: %s', sub.id, str(e))
 
 
 async def clear_db():
     now = datetime.datetime.now()
     delete_date = now - relativedelta(months=2)
-    print(delete_date)
+
     await delete_notification(delete_date)
 
 
 async def main():
-    print("Скрипт запущен. Нажмите Ctrl+C для остановки.")
+    logging.info("Скрипт запущен. Нажмите Ctrl+C для остановки.")
     bot_task = asyncio.create_task(start_bot())
     await clear_db()
     await job()
@@ -141,4 +152,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Application shutdown")

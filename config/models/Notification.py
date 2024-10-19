@@ -8,6 +8,7 @@ class Notification(Model):
     user: str | CharField = CharField()
     title: str | CharField = CharField()
     site: str | CharField = CharField()
+    link: str | CharField = CharField()
     last_updated = DateTimeField(default=datetime.datetime.now)
 
     class Meta:

@@ -1,3 +1,4 @@
+import logging
 import os
 
 import requests
@@ -29,7 +30,7 @@ def search_ozon(query, max_price):
     try:
         driver.get('https://www.ozon.ru/')
     except Exception as e:
-        print(f'Error open ozon page: {e}')
+        logging.error(f'Error open ozon page: {e}')
     time.sleep(3)
 
     # Поиск по запросу
@@ -44,11 +45,10 @@ def search_ozon(query, max_price):
     @retry(stop_max_attempt_number=5, wait_fixed=1000)
     def enter_min_price():
         min_price_input = driver.find_elements(By.CSS_SELECTOR, 'input[class="d015-a d015-a0 e0115-a8"]')[0]
-        print(min_price_input)
         min_price_input.clear()
         time.sleep(20)
         min_price_input.send_keys('30000')
-        print("Минимальная цена введена успешно")
+        logging.debug("Минимальная цена введена успешно")
 
     @retry(stop_max_attempt_number=5, wait_fixed=1000)
     def enter_max_price():
@@ -56,23 +56,23 @@ def search_ozon(query, max_price):
         max_price_input.clear()
         max_price_input.send_keys(str(max_price))
         max_price_input.send_keys(Keys.RETURN)
-        print("Максимальная цена введена успешно")
+        logging.debug("Максимальная цена введена успешно")
 
     try:
         enter_min_price()
     except Exception as e:
-        print("Ошибка при вводе минимальной цены после 5 попыток:", e)
+        logging.error("Ошибка при вводе минимальной цены после 5 попыток:", e)
 
     try:
         enter_max_price()
     except Exception as e:
-        print("Ошибка при вводе максимальной цены после 5 попыток:", e)
+        logging.error("Ошибка при вводе максимальной цены после 5 попыток:", e)
 
     time.sleep(3000)  # Ждем обновления результатов
 
     # Сбор информации о товарах
     products = driver.find_elements(By.CLASS_NAME, 'tile-root')  # Найдите правильный селектор для товаров
-    print(products)
+    logging.debug(products)
     result = []
     search_words = query.lower().split()
 
@@ -103,7 +103,7 @@ def search_ozon_url(url: str, params: dict):
     try:
         driver.get(url)
     except Exception as e:
-        print(f'Error open ozon page: {e}')
+        logging.error(f'Error open ozon page: {e}')
     time.sleep(3)
 
     # Сбор информации о товарах
@@ -130,7 +130,7 @@ def search_ozon_url(url: str, params: dict):
                 'image_url': image_url
             })
         except Exception as e:
-            print(f"Error: {e}")
+            logging.error(f"Error: {e}")
 
     driver.quit()
     return result
@@ -138,7 +138,7 @@ def search_ozon_url(url: str, params: dict):
 
 async def check_sub_ozon(sub: Subscription):
     products = search_ozon_url(url=sub.url, params=sub.params) if sub.url else search_ozon(sub.search, sub.max_price)
-    print(products)
+    logging.debug(products)
     notys = []
 
     if products:
@@ -154,9 +154,9 @@ async def check_sub_ozon(sub: Subscription):
                             "message_text": message_text
                         })
                 except Exception as e:
-                    print(e)
+                    logging.error(e)
 
         except Exception as e:
-            print(e)
+            logging.error(e)
 
     return notys

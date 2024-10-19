@@ -18,7 +18,7 @@ def get_options():
     options.add_argument("--disable-webrtc")
     # options.add_experimental_option("excludeSwitches", ["enable-automation"])
     # options.add_experimental_option('useAutomationExtension', False)
-    # options.add_argument("--headless")  # не открывать окно браузера
+    options.add_argument("--headless")  # не открывать окно браузера
 
     return options
 
