@@ -1,3 +1,4 @@
+import datetime
 import os
 from io import BytesIO
 
@@ -32,7 +33,7 @@ async def search_cian(params):
 
     url = add_params_url(base_url, params)
 
-    driver = get_uc_driver()
+    driver = get_uc_driver(headless=False)
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
         'source': '''
@@ -62,6 +63,8 @@ async def search_cian(params):
 
     except Exception as e:
         logger.error("Error interacting with modal or closing the modal: %s", str(e))
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        driver.save_screenshot(os.path.join("results", f"error_{timestamp}.png"))
 
     # Ожидаем, пока появится элемент с уведомлением о куки
     try:
@@ -71,6 +74,8 @@ async def search_cian(params):
         cookie_button.click()
     except Exception as e:
         logger.warning("Cookie notification could not be closed: %s", str(e))
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        driver.save_screenshot(os.path.join("results", f"error_{timestamp}.png"))
 
     wait = WebDriverWait(driver, 10)
     pagination_section = wait.until(EC.presence_of_element_located((By.XPATH, '//div[@data-name="PaginationSection"]')))
@@ -129,10 +134,10 @@ async def search_cian(params):
                             'image_url': image_url
                         })
                     except Exception as e:
-                        logger.error(f"Error in offer: {str(e)}")
+                        logger.error(f"Error in offer: {e}")
 
             except Exception as e:
-                logger.error(f'Error get cian offers on page {i}: {str(e)}')
+                logger.error(f'Error get cian offers on page {i}: {e}')
 
             if i + 1 < total_pages:
                 pages = pagination_section.find_elements(By.XPATH, './/ul/li')
@@ -169,11 +174,11 @@ async def check_sub_cian(sub):
                             })
 
                     except Exception as e:
-                        logger.error(str(e))
+                        logger.error(e)
 
             except Exception as e:
-                logger.error(str(e))
+                logger.error(e)
 
         return notys
     except Exception as e:
-        logger.error(f'Error in sub {sub.id}: {str(e)}')
+        logger.error(f'Error in sub {sub.id}: {e}')

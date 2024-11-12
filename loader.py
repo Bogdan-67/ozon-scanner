@@ -73,8 +73,3 @@ logger.addHandler(console_handler)
 logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 logging.getLogger("selenium").setLevel(logging.CRITICAL)
 logging.getLogger("apscheduler").setLevel(logging.CRITICAL)
-
-# Пример пользовательского лога
-logger.info("Это лог уровня INFO")
-logger.debug("Это лог уровня DEBUG")
-logger.warning("Это лог уровня WARNING")
