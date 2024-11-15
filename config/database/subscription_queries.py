@@ -3,6 +3,8 @@ from config.models.Subscription import Subscription
 import asyncpg
 import json
 
+from loader import logger
+
 
 async def get_subscriptions():
     try:
@@ -16,8 +18,8 @@ async def get_subscriptions():
 
 async def get_user_subscriptions(user_id):
     try:
-        subscriptions = await objects.get(Subscription, Subscription.user == user_id)
-        print('response:', list(subscriptions))
+        subscriptions = await objects.execute(Subscription.select().where(Subscription.user == user_id))
+        logger.debug(list(subscriptions))
         return list(subscriptions)
     except Exception as e:
         print('error', e)

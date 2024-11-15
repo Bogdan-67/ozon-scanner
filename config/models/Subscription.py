@@ -9,8 +9,9 @@ class Subscription(Model):
     search: str | CharField = CharField(null=True)
     max_price: float | DecimalField = DecimalField(null=True)
     user: str | CharField = CharField()
-    site: str | CharField = CharField(null=True)
-    url: str | CharField = CharField(null=True)
+    site: str | CharField = CharField()
+    origin_url: str | CharField = CharField()
+    base_url: str | CharField = CharField()
     params: dict | JSONField = JSONField(null=True)
     last_updated = DateTimeField(default=datetime.datetime.now)
 

@@ -6,7 +6,7 @@ async def main_menu_markup(user_id=None) -> InlineKeyboardMarkup:
     keyboard = []
 
     add_sub = types.InlineKeyboardButton(text='Добавить подписку', callback_data='add_subscription')
-    all_subs = types.InlineKeyboardButton(text='Активные подписки', callback_data='add_subscription')
+    all_subs = types.InlineKeyboardButton(text='Активные подписки', callback_data='subscriptions')
     keyboard.append([add_sub, all_subs])
 
     markup = types.InlineKeyboardMarkup(inline_keyboard=keyboard)

@@ -22,6 +22,7 @@ from handlers.main_menu import main_menu
 from aiogram import Bot, Dispatcher, types, html
 from markups.menu_markup import back_to_menu_markup
 from markups.sites_markup import sites_markup
+from states.DeleteSubState import DeleteSubState
 from states.NewSubscription import NewSubscription
 import sys
 from const.sites import SITES
@@ -29,6 +30,7 @@ from dateutil.relativedelta import relativedelta
 
 import handlers.new_subscription_handler
 import handlers.main_menu
+import handlers.delete_subscription_handler
 
 load_dotenv()
 
@@ -47,6 +49,7 @@ async def menu(message: types.Message):
 
 @user_router.callback_query()
 async def response(callback: types.CallbackQuery, state: FSMContext):
+    print(callback.data)
     if callback.message.chat.type == 'private':
 
         if callback.data == "menu":
@@ -59,40 +62,29 @@ async def response(callback: types.CallbackQuery, state: FSMContext):
         elif callback.data in [site['code'] for site in SITES]:
             await state.set_state(NewSubscription.site)
             await state.update_data(site=callback.data)
-            match callback.data:
-                case 'ozon':
-                    mess = 'Ссылка на страницу с выставленными фильтрами'
-                    await state.set_state(NewSubscription.url)
-                    await callback.message.answer(mess)
-                case 'cian':
-                    mess = 'Ссылка на страницу с выставленными фильтрами'
-                    await state.set_state(NewSubscription.url)
-                    await callback.message.answer(mess)
+
+            mess = 'Ссылка на страницу с выставленными фильтрами'
+            await state.set_state(NewSubscription.url)
+            await callback.message.answer(mess)
 
         elif callback.data == "subscriptions":
             subscriptions = await get_user_subscriptions(callback.from_user.id)
-            mess = "Список активных подписок:" + "\n".join(
-                [f"{index + 1}. {sub['search']} - {sub['max_price']}" for sub, index in subscriptions])
+
+            if len(subscriptions) == 0:
+                await callback.message.answer("Нет активных подписок")
+                return
+
+            mess = "Список активных подписок:\n" + "\n".join(
+                [f"{i+1}. {sub.site} - {sub.origin_url}" for i, sub in enumerate(subscriptions)])
             markup = types.InlineKeyboardMarkup(
                 inline_keyboard=[[types.InlineKeyboardButton(text='Удалить подписку', callback_data='delete_sub')]])
 
-            await callback.message.answer(text=mess, reply_markup=markup)
+            await callback.message.answer(text=mess, reply_markup=markup, disable_web_page_preview=True)
 
         elif callback.data == 'delete_sub':
             mess = 'Введи номер подписки, которую удалить'
-            await callback.message.answer(text=mess, callback="selected_deletion")
-
-        elif callback.data == 'selected_deletion':
-            num = callback.message.text
-            if num.isdigit():
-                try:
-                    subs = await get_user_subscriptions(callback.from_user.id)
-                    await delete_user_subscription(subs[num])
-                except Exception as e:
-                    logging.error(e)
-                    await callback.message.answer(text='Что-то пошло не так 🙁\nПопробуйте еще раз позже')
-            else:
-                await callback.message.answer(text="Неверный номер, попробуй снова", callback="selected_deletion")
+            await state.set_state(DeleteSubState.waiting_for_subscription_number)
+            await callback.message.answer(text=mess)
 
 
 async def job():
@@ -142,7 +134,7 @@ async def main():
     logging.info("Скрипт запущен. Нажмите Ctrl+C для остановки.")
     bot_task = asyncio.create_task(start_bot())
     await clear_db()
-    await job()
+    # await job()
     scheduler = AsyncIOScheduler()
     scheduler.add_job(job, 'interval', hours=1)
     scheduler.add_job(clear_db, 'interval', hours=24)
