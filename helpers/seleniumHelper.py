@@ -33,7 +33,7 @@ def get_uc_driver(headless=False, executor_url=None):
     options = uc.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument(f"user-agent={os.getenv('USER_AGENT')}")
+    options.add_argument(f"--user-agent={os.getenv('USER_AGENT')}")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-infobars")
     options.add_argument("--start-maximized")
@@ -49,7 +49,6 @@ def get_uc_driver(headless=False, executor_url=None):
 
     if headless:
         options.add_argument("--headless")  # не открывать окно браузера
-    # options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    # options.add_experimental_option('useAutomationExtension', False)
+        options.add_argument("--enable-javascript")
 
     return uc.Chrome(driver_executable_path=ChromeDriverManager().install(), use_subprocess=False, options=options, executor_url=executor_url, desired_capabilities={})

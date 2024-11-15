@@ -33,7 +33,7 @@ async def search_cian(params):
 
     url = add_params_url(base_url, params)
 
-    driver = get_uc_driver(headless=False)
+    driver = get_uc_driver(headless=True)
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
         'source': '''
@@ -64,6 +64,8 @@ async def search_cian(params):
     except Exception as e:
         logger.error("Error interacting with modal or closing the modal: %s", str(e))
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        with open(os.path.join("results", f"result_page_{timestamp}.html"), "w", encoding="utf-8") as file:
+            file.write(driver.page_source)
         driver.save_screenshot(os.path.join("results", f"error_{timestamp}.png"))
 
     # Ожидаем, пока появится элемент с уведомлением о куки
